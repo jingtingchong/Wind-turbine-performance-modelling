@@ -132,9 +132,9 @@ def plot_vars(df, turbine_name, ws_range, x_var, figsize=(18,3)):
     '''   
     df_plot = df[(df['instanceID'] == turbine_name) & (df['Wind_speed'] >= ws_range[0]) & (df['Wind_speed'] <= ws_range[1])] 
 
-    fig, ax = plt.subplots(1,3, figsize=(18,3), sharey='row')
+    fig, ax = plt.subplots(1,len(x_var), figsize=(18,3), sharey='row')
 
-    for c in range(3):
+    for c in range(len(x_var)):
         sns.scatterplot(x = df_plot[x_var[c]], y = df_plot['Power'], ax = ax[c], s = 1, edgecolor = None)
         ax[c].set_xlabel(x_var[c]) 
         ax[c].set_ylabel("Power") 
