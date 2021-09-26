@@ -27,24 +27,33 @@ def plot_timeseries(df, var):
     plt.show() 
 
 
-def plot_fullperformanceflag(df, order, xticklabels, figsize = (16,4), orient = "v"):
+def plot_fullperformanceflag(df, order, ticklabels, figsize = (16,4), orient = "v"):
     '''
     this function plots the bar chart of full performance flag vs sample count for each turbine 
     input: 
         df(dataframe): the dataframe to plot
         order(list): the list of the turbine IDs in order 
-        xticklabels(list): the list of the turbine IDs name, to be displayed in the plot
+        ticklabels(list): the list of the turbine IDs name, to be displayed in the plot
         figsize(tuple): the figure size 
         orient(string): "v" for vertical orientation, "h" for horizontal orientation
     output: 
         none
     '''
     fig, ax = plt.subplots(figsize = figsize)
-    ax = sns.barplot(y="ts", x="instanceID", hue = "value", data=df, orient = orient, order = order)
+
+    if orient == "v": 
+        ax = sns.barplot(y="ts", x="instanceID", hue = "value", data=df, orient = orient, order = order)
+        plt.ylabel("Sample count")
+        plt.xlabel("AWI Turbine ID")
+        ax.set_xticklabels(ticklabels)
+
+    if orient == "h": 
+        ax = sns.barplot(x="ts", y="instanceID", hue = "value", data=df, orient = orient, order = order)
+        plt.xlabel("Sample count")
+        plt.ylabel("AWI Turbine ID")
+        ax.set_yticklabels(ticklabels)
+    
     ax.legend(title="Full performance flag")
-    plt.ylabel("Sample count")
-    plt.xlabel("AWI Turbine ID")
-    ax.set_xticklabels(xticklabels)
     plt.show()
 
 
@@ -56,21 +65,31 @@ def clean_data(df):
     output: 
         df(dataframe): the clean dataframe
     '''    
-    # remove invalid values
-    df = df[(df['Wind_speed'] >= 0)]
-    df = df[(df['TI'] >= 0) & (df['TI'] <= 100)]
-    df = df[(df['Temperature'] >= 5) & (df['Temperature'] <= 40)]
+    # power values must be >=0
     df = df[(df['Power'] >= 0)]
-    
-    # remove entries with null values
+
+    # wind speed values must be >=0
+    df = df[(df['Wind_speed'] >= 0)]
     df = df[~df['Wind_speed'].isnull()]
-    df = df[~df['TI'].isnull()]
-    df = df[~df['Temperature'].isnull()]
-    
+
+    if df['TI'].isnull().all(): 
+        pass
+    else:
+        # TI values must be in [0, 100]
+        df = df[(df['TI'] >= 0) & (df['TI'] <= 100)]
+        df = df[~df['TI'].isnull()]
+
+    if df['Temperature'].isnull().all(): 
+        pass
+    else:
+        # temperature values must be in [-5, 40]
+        df = df[(df['Temperature'] >= -5) & (df['Temperature'] <= 40)]
+        df = df[~df['Temperature'].isnull()]
+   
     return df
 
 
-def plot_violinplot(df, var, var_name, order, xticklabels, figsize, orient = "v"):
+def plot_violinplot(df, var, var_name, order, ticklabels, figsize, orient = "v"):
     '''
     input: 
         df(dataframe): the dataframe to plot
@@ -85,10 +104,17 @@ def plot_violinplot(df, var, var_name, order, xticklabels, figsize, orient = "v"
     '''      
     fig, ax = plt.subplots(len(var), figsize = figsize)
     
-    for i in range (0, len(var)):
-        sns.violinplot(data = df, y = var[i], x = 'instanceID', orient = orient, ax = ax[i], order = order)
-        ax[i].set(ylabel = var_name[i], xlabel = 'turbine ID')
-        ax[i].set_xticklabels(xticklabels)
+    if orient == "v":
+        for i in range (0, len(var)):
+            sns.violinplot(data = df, y = var[i], x = 'instanceID', orient = orient, ax = ax[i], order = order)
+            ax[i].set(ylabel = var_name[i], xlabel = 'turbine ID')
+            ax[i].set_xticklabels(ticklabels)
+
+    if orient == "h":
+        for i in range (0, len(var)):
+            sns.violinplot(data = df, x = var[i], y = 'instanceID', orient = orient, ax = ax[i], order = order)
+            ax[i].set(xlabel = var_name[i], ylabel = 'turbine ID')
+            ax[i].set_yticklabels(ticklabels)
 
     plt.show()
 
@@ -105,17 +131,22 @@ def plot_powercurve(df, order, figsize=(18,18)):
     fig, ax = plt.subplots(5,5, figsize=figsize, sharex='col', sharey='row');
 
     i = 0
+
     for r in range (5):
-            for c in range (5):
-                df_turbine = df[df['instanceID'] == order[i]]
-                sns.scatterplot(x = df_turbine['Wind_speed'], y = df_turbine['Power'], ax = ax[r][c], s = 1, 
-                                edgecolor = None)
-                ax[r][c].set_title(order[i])
-                ax[r][c].set_xlabel("Wind_speed") 
-                ax[r][c].set_ylabel("Power") 
-                i += 1
-                if i >= len(order):
-                    break
+        for c in range (5):
+            df_turbine = df[df['instanceID'] == order[i]]
+            sns.scatterplot(x = df_turbine['Wind_speed'], y = df_turbine['Power'], ax = ax[r][c], s = 1, 
+                            edgecolor = None)
+            ax[r][c].set_title(order[i])
+            ax[r][c].set_xlabel("Wind_speed") 
+            ax[r][c].set_ylabel("Power") 
+            i += 1
+            if i >= len(order):
+                break
+        
+        if i >= len(order):
+            break
+            
     plt.show()
 
 
@@ -159,14 +190,14 @@ def plot_TIeffect(df, turbine_name, ws_range1, ws_range2, figsize=(16,6)):
 
     fig, ax = plt.subplots(1,2, figsize=(16,6), sharey='row')
 
-    sns.scatterplot(x = df_plot['Wind_speed'], y = df_plot['Power'], ax = ax[1], s = 5, label = 'all data points', edgecolor = None)
-    sns.scatterplot(x = df_plot_left['Wind_speed'], y = df_plot_left['Power'], ax = ax[1], s = 5 , label = 'data points where ' + str(ws_range1[0]) + '<= TI <= ' + str(ws_range1[1]), edgecolor = None)
-    ax[1].set_xlabel('Wind speed, m/s') 
-    ax[1].set_ylabel("Power, kW")  
-    
     sns.scatterplot(x = df_plot['Wind_speed'], y = df_plot['Power'], ax = ax[0], s = 5, label = 'all data points', edgecolor = None)
-    sns.scatterplot(x = df_plot_right['Wind_speed'], y = df_plot_right['Power'], ax = ax[0], s = 5, label = 'data points where ' + str(ws_range2[0]) + '<= TI <= ' + str(ws_range2[1]), edgecolor = None)
+    sns.scatterplot(x = df_plot_left['Wind_speed'], y = df_plot_left['Power'], ax = ax[0], s = 5 , label = 'data points where ' + str(ws_range1[0]) + '<= TI <= ' + str(ws_range1[1]), edgecolor = None)
     ax[0].set_xlabel('Wind speed, m/s') 
-    ax[0].set_ylabel("Power, kW") 
+    ax[0].set_ylabel("Power, kW")  
+    
+    sns.scatterplot(x = df_plot['Wind_speed'], y = df_plot['Power'], ax = ax[1], s = 5, label = 'all data points', edgecolor = None)
+    sns.scatterplot(x = df_plot_right['Wind_speed'], y = df_plot_right['Power'], ax = ax[1], s = 5, label = 'data points where ' + str(ws_range2[0]) + '<= TI <= ' + str(ws_range2[1]), edgecolor = None)
+    ax[1].set_xlabel('Wind speed, m/s') 
+    ax[1].set_ylabel("Power, kW") 
 
     plt.show()
