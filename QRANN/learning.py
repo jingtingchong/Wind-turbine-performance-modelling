@@ -1,12 +1,9 @@
 import numpy as np
-import pandas as pd
-import torch
 from torch import nn, Tensor
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
-from typing import Iterable
-from functools import partial
-from hyperopt import fmin, hp, space_eval, tpe, STATUS_OK, Trials
+from hyperopt import STATUS_OK
+from plotly import graph_objects as go
 
 from network import Net
 
@@ -57,11 +54,11 @@ def objective(indices, X_train, y_train, dims, epoch, quantile, space):
                 optimizer.step() # update weights
 
         # predict 
-        pred = net(Tensor(X_test_temp))
+        y_pred = net(Tensor(X_test_temp))
             
         # calulate validation loss and calculate its averange incrementally 
         mse_loss = nn.MSELoss()
-        val_loss = mse_loss(pred, Tensor(y_test_temp)).detach().numpy()
+        val_loss = mse_loss(y_pred, Tensor(y_test_temp)).detach().numpy()
         ave_val_loss = ave_val_loss + (val_loss - ave_val_loss)/counter
         counter+=1
 
@@ -75,6 +72,44 @@ def unpack(x):
     if x:
         return x[0]
     return np.nan
+
+
+def plot_contour(df, z, x, y):
+    '''
+    this function creates a contour plot for the loss. 
+    input: 
+    df(dataframe): the dataframe storing the results of the hyperparameter tuning trials 
+    z(string): the column name of the parameter to contour (loss)
+    x(string): the column name of the x axis (hyperparameter 1)
+    y(string): the column name of the y axis (hyperparameter 2)
+    
+    '''
+    
+    fig = go.Figure(
+        data=go.Contour(
+            z=df.loc[:, z],
+            x=df.loc[:, x],
+            y=df.loc[:, y],
+            contours=dict(
+                showlabels=True,  # show labels on contours
+                labelfont=dict(size=12, color="white",),  # label font properties
+            ),
+            colorbar=dict(title=z, titleside="right",),
+            hovertemplate=z + ": %{z}<br>max_depth: %{x}<br>" + x + ": %{y}<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        xaxis_title= x,
+        yaxis_title= y,
+        title={
+            "text": x +  "vs. " + y,
+            "xanchor": "center",
+            "yanchor": "top",
+            "x": 0.5,
+        },
+    )
+
+    return fig
 
 
 def train(X_train, y_train, quantile, net, lr, batch_size, epoch):    
